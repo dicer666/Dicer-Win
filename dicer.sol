@@ -92,7 +92,7 @@ contract Dicer {
         require(bet.player == address(0), "Error bet");
         uint select_count = getSelectCount(bet_data);
         uint locked_amount = msg.value * bet_type / select_count;
-        require(locked_amount <= game.amount - game.amount_locked, "Game error");
+        require(locked_amount <= game.amount + amount - game.amount_locked, "Game error");
 
         bet.game_id = game_id;
         bet.player = msg.sender;
@@ -109,11 +109,11 @@ contract Dicer {
     }
 
     function settleBet(bytes32 reveal) public payable {
-
         bytes32 bet_id = keccak256(abi.encodePacked(reveal));
         Bet storage bet = bets[bet_id];
         require(bet.player != address(0), "error bet");
         require(bet.status == 0, "error bet status");
+        require(bet.bet_result == 0, "error bet status");
 
         bet.bet_result = keccak256(abi.encodePacked(bet.seed, reveal));
 
@@ -151,16 +151,16 @@ contract Dicer {
         if (bet.status == 2) {
             win_amount = (bet.amount - game.prize_fee - game_fee) * bet.bet_type / select_count;
             game.amount -= win_amount;
-            lock_balance -= win_amount;
+            lock_balance += win_amount;
         }
 
         game.amount -= game.prize_fee;
 
         game.total_prize += game.prize_fee;
-        if (game.total_prize > 0 && bet_result / bet.bet_type % game.lucky_num == 0) {
+        if (game.total_prize > 0 && bet_result / bet.bet_type % 1000 == game.lucky_num) {
             emit log_prize(bet.player,game.total_prize);
             win_amount += game.total_prize;
-            lock_balance -= game.total_prize;
+            lock_balance += game.total_prize;
             game.total_prize = 0;
         }
 
@@ -255,7 +255,7 @@ contract Dicer {
 
     function profit(address payable addr,uint value) public onlyOwner {
         //require(value <= Balance, "");
-        require(value <= address(this).balance, "balance is not enough");
+        require(value <= address(this).balance - LOCK_BALANCE, "balance is not enough");
 
         safeSend(addr, value);
     }
